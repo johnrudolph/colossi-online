@@ -1,0 +1,98 @@
+---
+player_cards:  
+- title: Acolyte
+  type: Acolyte
+  power: 2
+  effect: If you have more Acolytes in play than each of your opponents, this card gets +3 power.
+- title: Acolyte
+  type: Acolyte
+  power: 2
+  effect: If you have more Acolytes in play than each of your opponents, this card gets +3 power.
+- title: Acolyte
+  type: Acolyte
+  power: 2
+  effect: If you have more Acolytes in play than each of your opponents, this card gets +3 power.
+- title: Acolyte
+  type: Acolyte
+  power: 2
+  effect: If you have more Acolytes in play than each of your opponents, this card gets +3 power.
+- title: Abduct
+  type: Beast
+  power: 2
+  effect: Take 1 card that is in play for an opponent, and put it face-down on top of your deck. The card you abducted is now part of your deck. You cannot Abduct an Item.
+- title: Pillage
+  type: Beast
+  power: 2
+  effect: Choose a card type. Each of your opponents must discard a card of that type from their hand, or discard 2 cards from their hand of types other than the type you chose.
+- title: Rampage
+  type: Beast
+  power: 2
+  effect: All of your opponents must discard cards from their hand until their hand size is equal to your hand size.
+- title: Bluff
+  type: Colossus
+  power: 4
+  effect: If this card is in play when scoring a Skirmish, you may move it face-down to another Environment instead of scoring it.
+- title: Channel Power
+  type: Colossus
+  power: "?"
+  effect: Find your opponent who has the most cards in play here. This card's power is equal to the number of cards that opponent has in play here. This card's power changes as opponents play more cards.
+- title: Curse
+  type: Colossus
+  power: -3
+  effect: "When you play this card, you may play it in front of an opponent instead of playing it for yourself. It is in play for them, and becomes part of their deck."
+- title: Heap
+  type: Colossus
+  power: 0
+  effect: Choose any amount of cards from your hand and from your cards in play here, and tuck them face-down under this card. The cards you chose are no longer in play. For each card you tucked, this card gains +2 Power.
+- title: Manifest
+  type: Colossus
+  power: 1
+  effect: Immediately play another card from your hand, even if you are not allowed to play that card right now.
+- title: Companionship
+  type: Divine Gift
+  power: 0
+  effect: 0	Draw 2 cards from your deck.
+- title: Extrication
+  type: Divine Gift
+  power: 0
+  effect: Choose 1 card that is in play for you and return it to your hand.
+- title: Foresight
+  type: Divine Gift
+  power: 0
+  effect: Look at the top 4 cards from your deck. Add 1 of them in your hand, and return the other 3 to the top of your deck in any order you choose.
+- title: Replacements
+  type: Divine Gift
+  power: 0
+  effect: Discard as many cards from your hand as you want. Then draw 1 card from your deck for every card you discarded.
+- title: Solidarity
+  type: Divine Gift
+  power: 0
+  effect: Choose 1 of the other Environments. Pick up all the cards you've prepared there, and add them to your hand.
+- title: Spark
+  type: Electric
+  power: 1
+  effect: "When anyone plays a DIVINE GIFT, before they resolve its effect: they must discard 1 card from their hand or from the cards they have in play for each ELECTRIC card in play here."
+- title: Bolt
+  type: Electric
+  power: 4
+  effect: "When anyone plays a DIVINE GIFT, before they resolve its effect: they must discard 1 card from their hand or from the cards they have in play for each ELECTRIC card in play here."
+- title: Flame
+  type: Fire
+  power: 6
+  effect: When this card is in play, no one can play a BEAST card here.
+- title: Inferno
+  type: Fire
+  power: 10
+  effect: When this card is in play, no one can play a BEAST card here.
+- title: Droplet
+  type: Water
+  power: 1
+  effect: When this card is in play, it gives +2 Power to all ELECTRIC cards and -2 Power to all FIRE cards (card Power cannot go below 0).
+- title: Shower
+  type: Water
+  power: 3
+  effect: When this card is in play, it gives +2 Power to all ELECTRIC cards and -2 Power to all FIRE cards (card Power cannot go below 0).
+- title: Downpour
+  type: Water
+  power: 5
+  effect: When this card is in play, it gives +2 Power to all ELECTRIC cards and -2 Power to all FIRE cards (card Power cannot go below 0).  effect: Choose a card type. Each of your opponents must discard a card of that type from their hand, or discard 2 cards from their hand of types other than the type you chose.

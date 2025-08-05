@@ -1,0 +1,122 @@
+---
+items:  
+- title: Boiler
+  type: Perk
+  description: WATER cards here give your FIRE cards here +2 instead of -2 Power. 
+  discard_cost: 1
+- title: Colossus Coil
+  type: Perk
+  description: +2 Power for all of your ELECTRIC cards here.
+  discard_cost: 1
+- title: Divine Icon
+  type: Perk
+  description: +1 Power for all of your DIVINE GIFT cards here.
+  discard_cost: 1
+- title: Ebenezer
+  type: Perk
+  description: Discard your entire hand. This card gives you +10 Power.
+  discard_cost: ?
+- title: Edible Carnage
+  type: Perk
+  description: +2 Power for all of your BEAST cards here.
+  discard_cost: 1
+- title: Oil
+  type: Perk
+  description: +2 Power for all of your FIRE cards here.
+  discard_cost: 1
+- title: Orb
+  type: Perk
+  description: +2 Power for all of your COLOSSUS cards here.
+  discard_cost: 1
+- title: Pointier Sticks
+  type: Perk
+  description: +2 Power for all of your ACOLYTE cards here.
+  discard_cost: 1
+- title: Turbine
+  type: Perk
+  description: +2 Power for all of your WATER cards here.
+  discard_cost: 1
+- title: Wager
+  type: Perk
+  description: "Guess aloud who will win this Skirmish. If you are correct: draw 2 cards from your deck and prepare them on the next Environment drawn. If you are wrong, discard all of your prepared cards everywhere."
+  discard_cost: 0
+- title: Alms
+  type: Discard
+  description: If you discarded the last card in your hand to take this, draw 3 cards. Otherwise, draw nothing.
+  discard_cost: 1
+- title: Cache
+  type: Discard
+  description: Pass, and flip up to 3 of your cards in play here face-down. Those cards are no longer in play, and are prepared for the next Environment drawn here.
+  discard_cost: 1
+- title: Caravan
+  type: Discard
+  description: Move up to 3 of your cards in play here to other Environments.
+  discard_cost: 1
+- title: Cloak
+  type: Discard
+  description: Place a card face-down here, and do not reveal it until scoring. It is not in play until you reveal it. If you reveal a WATER, FIRE, ELECTRIC, or ACOLYTE card, include it when scoring this Skirmish. Otherwise, discard it and do not resolve its effect.
+  discard_cost: 0
+- title: Cyclone
+  type: Discard
+  description: Pick up all Items on all Environments and put each of them on any of the 3 Environments (each Environment can still only have a maximum of 3 Items).
+  discard_cost: 0
+- title: Dice
+  type: Discard
+  description: Draw a random card from the middle of your deck and show it to everyone. If it is a DIVINE GIFT, ACOLYTE, or COLOSSUS, keep it in your hand and draw 2 more cards. Otherwise, discard your entire hand (including the new card you drew).
+  discard_cost: 0
+- title: Divine Mirror
+  type: Discard
+  description: Copy the effect of any DIVINE GIFT in play here. Ignore any ELECTRIC cards in play when you do this.
+  discard_cost: 1
+- title: Divine Totem
+  type: Discard
+  description: Immediately play a DIVINE GIFT from your hand, and resolve its effect twice.
+  discard_cost: 1
+- title: Hatchet
+  type: Discard
+  description: Discard 1 Item on any Environment, or 1 Perk Item that is already in play for another player.
+  discard_cost: 0
+- title: Lockpick
+  type: Discard
+  description: Look at the top card of each players' deck. Place 1 of them on top of your deck, and return any others to the decks they came from.
+  discard_cost: 2
+- title: Looking Glass
+  type: Discard
+  description: Choose an opponent. They must show their entire hand to you.
+  discard_cost: 1
+- title: Loot Chest
+  type: Discard
+  description: Draw 3 Items. You may immediately play any of these items for free if it has a discard cost of 0 or 1. Discard any of the 3 Items you don't play.
+  discard_cost: 1
+- title: Magnet
+  type: Discard
+  description: Take an Item from 1 of the other 2 Environments and play it here immediately (you must still pay its discard cost).
+  discard_cost: 0
+- title: Olive Branch
+  type: Discard
+  description: For each Beast card you discarded to take this, draw 2 cards.
+  discard_cost: 2
+- title: Poison Pill
+  type: Discard
+  description: Discard any number of cards from your hand (must be more than 0). Each of your opponents must immediately discard the same number of cards from their hands.
+  discard_cost: ?
+- title: Rallying Banner
+  type: Discard
+  description: Search your deck for an ACOLYTE. If you find one, play it immediately (limit to just 1 ACOLYTE). Shuffle your deck.
+  discard_cost: 1
+- title: Recycler
+  type: Discard
+  description: Choose an Item from the Item discard pile that has a discard cost of 0 or 1. Play it immediately for free.
+  discard_cost: 1
+- title: Secret Tunnel Keys
+  type: Discard
+  description: Immediately play a BEAST card, even if there are FIRE cards in play here.
+  discard_cost: 1
+- title: Shrine
+  type: Discard
+  description: Choose 1 card from your discard pile and prepare it on either of the other 2 Environments.
+  discard_cost: 1
+- title: Terraformer
+  type: Discard
+  description: Discard both of the non-active Environments where you are not currently Skirmishing, and replace them with the top Environments from the deck. Any Items should remain on the next Environments drawn.
+  discard_cost: 1

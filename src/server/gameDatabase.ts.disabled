@@ -1,0 +1,344 @@
+import { PrismaClient } from "../generated/prisma";
+import {
+  GameState,
+  Player,
+  PlayerCard,
+  Environment,
+  Item,
+  EnvironmentState,
+  PreparedCards,
+} from "../shared/types/game";
+
+const prisma = new PrismaClient();
+
+export class GameDatabase {
+  // Save a complete game state to database
+  async saveGame(gameState: GameState): Promise<void> {
+    try {
+      // Serialize complex objects to JSON strings
+      const serializedPreparedCards = JSON.stringify(gameState.preparedCards);
+      const serializedEnvironmentStates = JSON.stringify(gameState.environmentStates);
+      const serializedEnvironmentDeck = JSON.stringify(gameState.environmentDeck);
+      const serializedItemDeck = JSON.stringify(gameState.itemDeck);
+
+      await prisma.game.upsert({
+        where: { id: gameState.id },
+        update: {
+          phase: gameState.phase,
+          maxPlayers: gameState.maxPlayers,
+          currentPlayerIndex: gameState.currentPlayerIndex,
+          turn: gameState.turn,
+          deck: serializedEnvironmentDeck,
+          discardPile: serializedItemDeck,
+          updatedAt: gameState.updatedAt,
+        },
+        create: {
+          id: gameState.id,
+          phase: gameState.phase,
+          maxPlayers: gameState.maxPlayers,
+          currentPlayerIndex: gameState.currentPlayerIndex,
+          turn: gameState.turn,
+          deck: serializedEnvironmentDeck,
+          discardPile: serializedItemDeck,
+          createdAt: gameState.createdAt,
+          updatedAt: gameState.updatedAt,
+        },
+      });
+
+      // Save players
+      for (const player of gameState.players) {
+        await this.savePlayer(player, gameState.id);
+      }
+
+      // Save game-specific data in game history for complex state
+      await prisma.gameHistory.create({
+        data: {
+          gameId: gameState.id,
+          action: JSON.stringify({
+            type: "GAME_STATE_SNAPSHOT",
+            preparedCards: serializedPreparedCards,
+            environmentStates: serializedEnvironmentStates,
+            activeEnvironmentId: gameState.activeEnvironmentId,
+            skirmishInitiatorId: gameState.skirmishInitiatorId,
+            targetSkirmishes: gameState.targetSkirmishes,
+          }),
+        },
+      });
+    } catch (error) {
+      console.error("Error saving game to database:", error);
+      throw error;
+    }
+  }
+
+  // Load a complete game state from database
+  async loadGame(gameId: string): Promise<GameState | null> {
+    try {
+      const game = await prisma.game.findUnique({
+        where: { id: gameId },
+        include: {
+          players: true,
+          gameHistory: {
+            where: {
+              action: {
+                contains: "GAME_STATE_SNAPSHOT",
+              },
+            },
+            orderBy: { timestamp: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!game) {
+        return null;
+      }
+
+      // Get the latest game state snapshot
+      const latestSnapshot = game.gameHistory[0];
+      if (!latestSnapshot) {
+        return null;
+      }
+
+      const snapshotData = JSON.parse(latestSnapshot.action);
+
+      // Reconstruct the game state
+      const gameState: GameState = {
+        id: game.id,
+        players: game.players.map(this.deserializePlayer),
+        currentPlayerIndex: game.currentPlayerIndex,
+        phase: game.phase as GameState["phase"],
+        preparedCards: JSON.parse(snapshotData.preparedCards) as PreparedCards,
+        activeEnvironmentId: snapshotData.activeEnvironmentId,
+        skirmishInitiatorId: snapshotData.skirmishInitiatorId,
+        environmentStates: JSON.parse(snapshotData.environmentStates) as EnvironmentState[],
+        turn: game.turn,
+        maxPlayers: game.maxPlayers,
+        targetSkirmishes: snapshotData.targetSkirmishes,
+        environmentDeck: JSON.parse(game.deck) as Environment[],
+        itemDeck: JSON.parse(game.discardPile) as Item[],
+        createdAt: game.createdAt,
+        updatedAt: game.updatedAt,
+      };
+
+      return gameState;
+    } catch (error) {
+      console.error("Error loading game from database:", error);
+      return null;
+    }
+  }
+
+  // Save a player to database
+  private async savePlayer(player: Player, gameId: string): Promise<void> {
+    const serializedHand = JSON.stringify(player.hand);
+    const serializedDeck = JSON.stringify(player.deck);
+    const serializedDiscardPile = JSON.stringify(player.discardPile);
+
+    await prisma.player.upsert({
+      where: { id: player.id },
+      update: {
+        name: player.name,
+        hand: serializedHand,
+        isReady: player.isReady,
+        isConnected: player.isConnected,
+        score: player.skirmishesWon,
+      },
+      create: {
+        id: player.id,
+        name: player.name,
+        hand: serializedHand,
+        isReady: player.isReady,
+        isConnected: player.isConnected,
+        score: player.skirmishesWon,
+        gameId: gameId,
+      },
+    });
+
+    // Store deck and discard pile in game history for this player
+    await prisma.gameHistory.create({
+      data: {
+        gameId: gameId,
+        playerId: player.id,
+        action: JSON.stringify({
+          type: "PLAYER_STATE",
+          color: player.color,
+          deck: serializedDeck,
+          discardPile: serializedDiscardPile,
+          hasPassed: player.hasPassed,
+        }),
+      },
+    });
+  }
+
+  // Convert database player to game player
+  private deserializePlayer(dbPlayer: any): Player {
+    // Get the latest player state from game history
+    const hand = JSON.parse(dbPlayer.hand || "[]") as PlayerCard[];
+
+    return {
+      id: dbPlayer.id,
+      name: dbPlayer.name,
+      color: "black", // Will be updated from game history
+      hand,
+      deck: [], // Will be updated from game history
+      discardPile: [], // Will be updated from game history
+      isReady: dbPlayer.isReady,
+      isConnected: dbPlayer.isConnected,
+      skirmishesWon: dbPlayer.score,
+      hasPassed: false, // Will be updated from game history
+    };
+  }
+
+  // Get all active games
+  async getActiveGames(): Promise<Array<{ id: string; playerCount: number; phase: string }>> {
+    try {
+      const games = await prisma.game.findMany({
+        where: {
+          phase: {
+            not: "finished",
+          },
+        },
+        include: {
+          players: true,
+        },
+      });
+
+      return games.map((game) => ({
+        id: game.id,
+        playerCount: game.players.length,
+        phase: game.phase,
+      }));
+    } catch (error) {
+      console.error("Error getting active games:", error);
+      return [];
+    }
+  }
+
+  // Delete a game and all related data
+  async deleteGame(gameId: string): Promise<void> {
+    try {
+      await prisma.game.delete({
+        where: { id: gameId },
+      });
+    } catch (error) {
+      console.error("Error deleting game:", error);
+      throw error;
+    }
+  }
+
+  // Log a game action for debugging/replay
+  async logGameAction(gameId: string, playerId: string | null, action: any): Promise<void> {
+    try {
+      await prisma.gameHistory.create({
+        data: {
+          gameId,
+          playerId,
+          action: JSON.stringify(action),
+        },
+      });
+    } catch (error) {
+      console.error("Error logging game action:", error);
+      // Don't throw - logging shouldn't break the game
+    }
+  }
+
+  // Get game history for debugging
+  async getGameHistory(gameId: string): Promise<any[]> {
+    try {
+      const history = await prisma.gameHistory.findMany({
+        where: { gameId },
+        orderBy: { timestamp: "asc" },
+      });
+
+      return history.map((entry) => ({
+        ...entry,
+        action: JSON.parse(entry.action),
+      }));
+    } catch (error) {
+      console.error("Error getting game history:", error);
+      return [];
+    }
+  }
+
+  // Update player connection status
+  async updatePlayerConnection(playerId: string, isConnected: boolean): Promise<void> {
+    try {
+      await prisma.player.update({
+        where: { id: playerId },
+        data: { isConnected },
+      });
+    } catch (error) {
+      console.error("Error updating player connection:", error);
+    }
+  }
+
+  // Get player by ID
+  async getPlayer(playerId: string): Promise<Player | null> {
+    try {
+      const dbPlayer = await prisma.player.findUnique({
+        where: { id: playerId },
+        include: {
+          game: {
+            include: {
+              gameHistory: {
+                where: {
+                  playerId: playerId,
+                  action: {
+                    contains: "PLAYER_STATE",
+                  },
+                },
+                orderBy: { timestamp: "desc" },
+                take: 1,
+              },
+            },
+          },
+        },
+      });
+
+      if (!dbPlayer) {
+        return null;
+      }
+
+      let player = this.deserializePlayer(dbPlayer);
+
+      // Update with latest player state from history
+      if (dbPlayer.game.gameHistory.length > 0) {
+        const latestState = JSON.parse(dbPlayer.game.gameHistory[0].action);
+        player.color = latestState.color;
+        player.deck = JSON.parse(latestState.deck);
+        player.discardPile = JSON.parse(latestState.discardPile);
+        player.hasPassed = latestState.hasPassed;
+      }
+
+      return player;
+    } catch (error) {
+      console.error("Error getting player:", error);
+      return null;
+    }
+  }
+
+  // Cleanup old finished games (run periodically)
+  async cleanupOldGames(olderThanHours: number = 24): Promise<void> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setHours(cutoffDate.getHours() - olderThanHours);
+
+      await prisma.game.deleteMany({
+        where: {
+          phase: "finished",
+          updatedAt: {
+            lt: cutoffDate,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error cleaning up old games:", error);
+    }
+  }
+
+  // Close database connection
+  async disconnect(): Promise<void> {
+    await prisma.$disconnect();
+  }
+}
+
+export const gameDatabase = new GameDatabase();

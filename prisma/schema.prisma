@@ -1,0 +1,55 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Game {
+  id            String   @id @default(cuid())
+  phase         String   @default("waiting") // waiting, playing, finished
+  maxPlayers    Int      @default(4)
+  currentPlayerIndex Int @default(0)
+  turn          Int      @default(0)
+  deck          String   @default("") // JSON serialized deck
+  discardPile   String   @default("") // JSON serialized discard pile
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  players       Player[]
+  gameHistory   GameHistory[]
+}
+
+model Player {
+  id           String   @id @default(cuid())
+  name         String
+  hand         String   @default("") // JSON serialized hand
+  isReady      Boolean  @default(false)
+  isConnected  Boolean  @default(true)
+  score        Int      @default(0)
+  joinedAt     DateTime @default(now())
+
+  gameId       String
+  game         Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+}
+
+model GameHistory {
+  id        String   @id @default(cuid())
+  gameId    String
+  playerId  String?
+  action    String   // JSON serialized action
+  timestamp DateTime @default(now())
+
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+  @@index([timestamp])
+}

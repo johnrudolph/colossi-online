@@ -1,0 +1,445 @@
+import type { NextApiRequest, NextApiResponse } from "next";
+import { Server as SocketIOServer } from "socket.io";
+import type { Server as HTTPServer } from "http";
+import type { Socket as NetSocket } from "net";
+import { GameEngine } from "../../shared/game/GameEngine";
+import { gameDatabase } from "../../server/gameDatabase";
+import {
+  GameAction,
+  CreateGameRequest,
+  JoinGameRequest,
+  GameState,
+} from "../../shared/types/game";
+
+interface SocketServer extends HTTPServer {
+  io?: SocketIOServer;
+  gameEngines?: Map<string, GameEngine>;
+  playerSockets?: Map<string, string>;
+}
+
+interface SocketWithIO extends NetSocket {
+  server: SocketServer;
+}
+
+interface NextApiResponseWithSocket extends NextApiResponse {
+  socket: SocketWithIO;
+}
+
+interface CreateGameResponse {
+  success: boolean;
+  gameId?: string;
+  playerId?: string;
+  gameState?: GameState;
+  error?: { code: string; message: string };
+}
+
+interface JoinGameResponse {
+  success: boolean;
+  gameId?: string;
+  playerId?: string;
+  gameState?: GameState;
+  error?: { code: string; message: string };
+}
+
+const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
+  if (res.socket.server.io) {
+    console.log("Socket.IO server already running");
+    res.end();
+    return;
+  }
+
+  console.log("Initializing Socket.IO server with multiplayer support...");
+
+  const io = new SocketIOServer(res.socket.server as any, {
+    path: "/api/socket",
+    addTrailingSlash: false,
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+    },
+  });
+
+  // Initialize server-level storage
+  res.socket.server.io = io;
+  res.socket.server.gameEngines = new Map<string, GameEngine>();
+  res.socket.server.playerSockets = new Map<string, string>();
+
+  const gameEngines = res.socket.server.gameEngines;
+  const playerSockets = res.socket.server.playerSockets;
+
+  io.on("connection", (socket) => {
+    console.log("New player connected:", socket.id);
+
+    // Generate unique player ID
+    const playerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    playerSockets.set(playerId, socket.id);
+
+    // Store player ID in socket data
+    (socket as any).playerId = playerId;
+
+    // Handle game creation
+    socket.on(
+      "createGame",
+      async (
+        data: CreateGameRequest,
+        callback: (response: CreateGameResponse) => void,
+      ) => {
+        try {
+          console.log(`Creating game for player: ${data.playerName}`);
+
+          // Create new game engine
+          const gameEngine = new GameEngine(
+            undefined,
+            data.maxPlayers || 4,
+            data.isQuickGame,
+          );
+          const gameId = gameEngine.getGameState().id;
+
+          // Add creator as first player
+          const error = gameEngine.addPlayer(playerId, data.playerName);
+          if (error) {
+            callback({ success: false, error });
+            return;
+          }
+
+          // Set up event listeners for this game
+          setupGameEventListeners(gameEngine, io, gameDatabase);
+
+          // Store game engine in memory
+          gameEngines.set(gameId, gameEngine);
+
+          // Save initial game state to database
+          await gameDatabase.saveGame(gameEngine.getGameState());
+          await gameDatabase.logGameAction(gameId, playerId, {
+            type: "GAME_CREATED",
+            playerName: data.playerName,
+          });
+
+          // Join socket room
+          socket.join(gameId);
+
+          const gameState = gameEngine.getGameState();
+          callback({
+            success: true,
+            gameId,
+            playerId,
+            gameState,
+          });
+
+          console.log(
+            `Game ${gameId} created successfully by ${data.playerName}`,
+          );
+        } catch (err) {
+          console.error("Error creating game:", err);
+          callback({
+            success: false,
+            error: {
+              code: "GAME_CREATION_FAILED",
+              message: "Failed to create game",
+            },
+          });
+        }
+      },
+    );
+
+    // Handle joining existing game
+    socket.on(
+      "joinGame",
+      async (
+        data: JoinGameRequest,
+        callback: (response: JoinGameResponse) => void,
+      ) => {
+        try {
+          console.log(
+            `Player ${data.playerName} attempting to join game ${data.gameId}`,
+          );
+
+          // Try to get game from memory first
+          let gameEngine = gameEngines.get(data.gameId);
+
+          // If not in memory, try to load from database
+          if (!gameEngine) {
+            const savedGameState = await gameDatabase.loadGame(data.gameId);
+            if (savedGameState) {
+              gameEngine = GameEngine.deserialize(
+                JSON.stringify(savedGameState),
+              );
+              setupGameEventListeners(gameEngine, io, gameDatabase);
+              gameEngines.set(data.gameId, gameEngine);
+              console.log(`Loaded game ${data.gameId} from database`);
+            }
+          }
+
+          if (!gameEngine) {
+            callback({
+              success: false,
+              error: { code: "GAME_NOT_FOUND", message: "Game not found" },
+            });
+            return;
+          }
+
+          // Add player to game
+          const error = gameEngine.addPlayer(playerId, data.playerName);
+          if (error) {
+            callback({ success: false, error });
+            return;
+          }
+
+          // Save updated game state
+          await gameDatabase.saveGame(gameEngine.getGameState());
+          await gameDatabase.logGameAction(data.gameId, playerId, {
+            type: "PLAYER_JOINED",
+            playerName: data.playerName,
+          });
+
+          // Join socket room
+          socket.join(data.gameId);
+
+          const gameState = gameEngine.getGameState();
+          callback({
+            success: true,
+            gameId: data.gameId,
+            playerId,
+            gameState,
+          });
+
+          console.log(
+            `Player ${data.playerName} successfully joined game ${data.gameId}`,
+          );
+        } catch (err) {
+          console.error("Error joining game:", err);
+          callback({
+            success: false,
+            error: {
+              code: "JOIN_GAME_FAILED",
+              message: "Failed to join game",
+            },
+          });
+        }
+      },
+    );
+
+    // Handle game actions
+    socket.on("gameAction", async (action: GameAction) => {
+      try {
+        // Find the game this player is in
+        let gameId: string | null = null;
+        let gameEngine: GameEngine | null = null;
+
+        for (const [id, engine] of gameEngines.entries()) {
+          if (engine.getPlayer(playerId)) {
+            gameId = id;
+            gameEngine = engine;
+            break;
+          }
+        }
+
+        if (!gameEngine || !gameId) {
+          socket.emit("error", { code: "NO_GAME", message: "Not in a game" });
+          return;
+        }
+
+        // Ensure action is from correct player
+        action.playerId = playerId;
+
+        // Log the action
+        await gameDatabase.logGameAction(gameId, playerId, action);
+
+        // Process the action
+        const error = gameEngine.processAction(action);
+        if (error) {
+          socket.emit("error", error);
+        } else {
+          // Save updated game state after successful action
+          await gameDatabase.saveGame(gameEngine.getGameState());
+        }
+      } catch (err) {
+        console.error("Error processing game action:", err);
+        socket.emit("error", {
+          code: "ACTION_FAILED",
+          message: "Failed to process action",
+        });
+      }
+    });
+
+    // Handle leaving game
+    socket.on("leaveGame", async (gameId: string) => {
+      await handlePlayerLeave(socket, gameId, playerId, gameEngines, io);
+    });
+
+    // Handle disconnection
+    socket.on("disconnect", async () => {
+      console.log(`Player ${playerId} disconnected (socket: ${socket.id})`);
+
+      // Update connection status in database
+      await gameDatabase.updatePlayerConnection(playerId, false);
+
+      // Find any games this player was in and mark them as disconnected
+      for (const [gameId, gameEngine] of gameEngines.entries()) {
+        const player = gameEngine.getPlayer(playerId);
+        if (player) {
+          gameEngine.setPlayerConnection(playerId, false);
+          await gameDatabase.saveGame(gameEngine.getGameState());
+
+          // Emit updated game state to other players
+          io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+          break;
+        }
+      }
+
+      playerSockets.delete(playerId);
+    });
+
+    // Handle reconnection (when player refreshes page)
+    socket.on("reconnect", async (oldPlayerId: string) => {
+      try {
+        // Update player socket mapping
+        playerSockets.set(oldPlayerId, socket.id);
+        (socket as any).playerId = oldPlayerId;
+
+        // Update connection status
+        await gameDatabase.updatePlayerConnection(oldPlayerId, true);
+
+        // Find the game and rejoin
+        for (const [gameId, gameEngine] of gameEngines.entries()) {
+          const player = gameEngine.getPlayer(oldPlayerId);
+          if (player) {
+            gameEngine.setPlayerConnection(oldPlayerId, true);
+            socket.join(gameId);
+            socket.emit("gameUpdated", gameEngine.getGameState());
+            await gameDatabase.saveGame(gameEngine.getGameState());
+            console.log(`Player ${oldPlayerId} reconnected to game ${gameId}`);
+            break;
+          }
+        }
+      } catch (err) {
+        console.error("Error handling reconnection:", err);
+      }
+    });
+  });
+
+  console.log("Socket.IO server initialized with database persistence");
+  res.end();
+};
+
+// Handle player leaving a game
+async function handlePlayerLeave(
+  socket: any,
+  gameId: string,
+  playerId: string,
+  gameEngines: Map<string, GameEngine>,
+  io: SocketIOServer,
+): Promise<void> {
+  try {
+    const gameEngine = gameEngines.get(gameId);
+    if (!gameEngine) return;
+
+    // Remove player from game
+    gameEngine.removePlayer(playerId);
+
+    // Log the action
+    await gameDatabase.logGameAction(gameId, playerId, {
+      type: "PLAYER_LEFT",
+    });
+
+    // Leave socket room
+    socket.leave(gameId);
+
+    const gameState = gameEngine.getGameState();
+
+    // If no players left, clean up
+    if (gameState.players.length === 0) {
+      gameEngines.delete(gameId);
+      await gameDatabase.deleteGame(gameId);
+      console.log(`Cleaned up empty game: ${gameId}`);
+    } else {
+      // Save updated game state
+      await gameDatabase.saveGame(gameState);
+    }
+
+    console.log(`Player ${playerId} left game ${gameId}`);
+  } catch (err) {
+    console.error("Error handling player leave:", err);
+  }
+}
+
+// Set up event listeners for a game engine
+function setupGameEventListeners(
+  gameEngine: GameEngine,
+  io: SocketIOServer,
+  database: typeof gameDatabase,
+): void {
+  gameEngine.onEvent(async (event) => {
+    const gameId = event.gameId;
+
+    // Save game state on every event
+    try {
+      await database.saveGame(gameEngine.getGameState());
+    } catch (err) {
+      console.error("Error saving game state on event:", err);
+    }
+
+    // Emit appropriate events to all players in the game
+    switch (event.type) {
+      case "GAME_UPDATED":
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "PLAYER_JOINED":
+        io.to(gameId).emit("playerJoined", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "PLAYER_LEFT":
+        io.to(gameId).emit("playerLeft", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "PHASE_CHANGED":
+        io.to(gameId).emit("phaseChanged", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "CARD_PREPARED":
+        io.to(gameId).emit("cardPrepared", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "SKIRMISH_INITIATED":
+        io.to(gameId).emit("skirmishInitiated", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "CARD_PLAYED":
+        io.to(gameId).emit("cardPlayed", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "ITEM_TAKEN":
+        io.to(gameId).emit("itemTaken", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "PLAYER_PASSED":
+        io.to(gameId).emit("playerPassed", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "SKIRMISH_ENDED":
+        io.to(gameId).emit("skirmishEnded", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      case "GAME_ENDED":
+        io.to(gameId).emit("gameEnded", event.data);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+        break;
+
+      default:
+        io.to(gameId).emit("gameEvent", event);
+        io.to(gameId).emit("gameUpdated", gameEngine.getGameState());
+    }
+  });
+}
+
+export default SocketHandler;

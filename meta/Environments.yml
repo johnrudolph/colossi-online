@@ -1,0 +1,40 @@
+---
+environments:  
+- title: Badlands
+  description: "During Skirmishes here: when you play a BEAST card, your opponents must discard 1 extra card. You cannot play FIRE cards here."
+- title: Blitz Creek
+  description: During Skirmishes here, if you have 25 or more Power in play at the end of your turn, your opponents must discard all the cards in their hands.
+- title: Cavern
+  description: During Skirmishes here, if you have 5 or more cards in play when your turn starts, you must Pass.
+- title: Chaos Fissure
+  description: "When you prepare a card here during Handbuilding: all opponents must also immediately prepare a card here. Then the player to your left takes their turn as usual. When a Skirmish starts here, shuffle all the cards prepared here together and deal them evenly."
+- title: Desert
+  description: During Skirmishes here, you cannot play WATER cards.
+- title: Glass River
+  description: All cards prepared here must be face-up rather than face-down.
+- title: Graveyard
+  description: When a Skirmish starts here, before the Initiator plays their first card, everyone searches their discard piles for Acolytes and immediately plays all Acolytes they find.
+- title: Hallowed Ground
+  description: During Skirmishes here, you can only play WATER, FIRE, and ELECTRIC cards if you have more ACOLYTES in play than your opponents.
+- title: Impulse Isle
+  description: During Skirmishes here, you will only have 1 turn. On your turn, continue to play cards 1 by 1 and resolve them as you play them until your hand is empty, or until you Pass. On your turn you may still take Items as usual. Beast cards have no effect here.
+- title: Magnetic Maar
+  description: "You can never prepare cards here. At the start of your turn during the Handbuilding phase, if each player has a total of 7 or more cards prepared on the other 2 Environments: everyone must immediately move all their prepared cards here, and you must initiate a Skirmish here."
+- title: Oasis
+  description: When a Skirmish starts here, before the Initiator plays their first card, draw 3 cards if you have fewer cards prepared on this Environment than all of your opponents.
+- title: Outskirts
+  description: You may Initiate a Skirmish here, even if there are no cards prepared here. However, you can only Initiate a Skirmish here if an opponent has won more Skirmishes than you.
+- title: Poison Swamp
+  description: After you prepare a card here in the Handbuilding phase, discard the other 2 cards from your hand, then draw back up to 3 cards.
+- title: Sacrifice Mountain
+  description: "At the start of your first turn during Skirmishes here: choose 2 cards from your hand and put them on the top of any opponent's deck. Those cards are now part of their deck."
+- title: Stockpile Steppe
+  description: When this is drawn, place 3 Items face-down here. When a Skirmish starts here, flip all 3 Items face-up.
+- title: The Brink
+  description: When preparing a card here during the Handbuilding phase, you must immediately prepare all 3 cards from your hand here, and draw 3 cards from your deck. Then, discard 1 card that an opponent has prepared here.
+- title: The Sticks
+  description: Every time you play a FIRE card here during a Skirmish, discard 1 card in play here that is not a FIRE card. 
+- title: Volcano
+  description: After passing during Skirmishes here, discard all cards remaining in your hand instead of moving those cards to other Environments.
+- title: Zenith
+  description: "When a Skirmish starts here: draw 3 cards if you are 2 or more Skirmishes away from winning the game. There is no hand limit here."
